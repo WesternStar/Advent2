@@ -22,12 +22,21 @@ func (e UnknownModeError) Error() string {
 	return fmt.Sprintf("Unknown Mode!")
 }
 
-type EmptyInputError struct{}
-
-func (e EmptyInputError) Error() string {
-	return fmt.Sprintf("Empty Input!")
+type EmptyInputError struct{
+	inst int
 }
 
+func (e EmptyInputError) Error() string {
+	return fmt.Sprintf("Input requested at inst:%d but no input available", e.inst)
+}
+
+func (e EmptyInputError) Is(target error) bool {
+	if _,ok := target.(EmptyInputError);  ok {
+		return true
+	} else {
+		return false
+	}
+}
 type UnknownOpError struct {
 	op int
 }
@@ -35,6 +44,7 @@ type UnknownOpError struct {
 func (e UnknownOpError) Error() string {
 	return fmt.Sprintf("Unknown Operation:%v", e.op)
 }
+
 
 
 // Do the given operation on the tape
@@ -66,7 +76,6 @@ func doOp(index *int, tape, input, output *[]int) (*int, error) {
 		loc1 := (*tape)[*index+1]
 		loc2 := (*tape)[*index+2]
 		loc3 := (*tape)[*index+3]
-	        //fmt.Printf("Opcode:%v, mode:%v, loc1:%v, loc2:%v\n",op,mode[2], loc1,loc2)
 		val1,err:=getValue(loc1,mode[2])
 		if err!=nil {
 			return nil,err
@@ -94,7 +103,6 @@ func doOp(index *int, tape, input, output *[]int) (*int, error) {
 		*index+=4
 		return nil, nil
 	case 3:
-		fmt.Println(input)
 		loc1 := (*tape)[*index+1]
 		if len(*input) > 0 {
 			(*tape)[loc1] = (*input)[0]
@@ -102,7 +110,7 @@ func doOp(index *int, tape, input, output *[]int) (*int, error) {
 			*index+=2
 			return nil, nil
 		} else {
-			return nil, EmptyInputError{}
+			return nil, EmptyInputError{*index}
 
 		}
 	case 4:
@@ -228,7 +236,7 @@ func printOp(index int, tape,input []int) (string, error) {
 		if err!=nil {
 			return "",err
 		}
-		return fmt.Sprintf("Add:%d + %d = %d written to %d\n", val1, val2, val1+val2, loc3), nil
+		return fmt.Sprintf("%d: Add:%d + %d = %d written to %d\n",index, val1, val2, val1+val2, loc3), nil
 	case 2:
 		loc1 := tape[index+1]
 		loc2 := tape[index+2]
@@ -241,13 +249,13 @@ func printOp(index int, tape,input []int) (string, error) {
 		if err!=nil {
 			return "",err
 		}
-		return fmt.Sprintf("Mul:%d + %d = %d written to %d\n", val1, val2, val1*val2, loc3), nil
+		return fmt.Sprintf("%d: Mul:%d * %d = %d written to %d\n",index,  val1, val2, val1*val2, loc3), nil
 	case 3:
 		loc1 := tape[index+1]
 		if len(input )>0{
-			return fmt.Sprintf("Input:%d written to %d\n",input[0],loc1 ), nil
+			return fmt.Sprintf("%d: Input:%d written to %d\n",index, input[0],loc1 ), nil
 		}
-		return fmt.Sprintf("Input already consumed\n"),EmptyInputError{}
+		return fmt.Sprintf("Input already consumed\n"),EmptyInputError{index}
 	case 4:
 		loc1 := tape[index+1]
 		val1,err:=getValue(loc1,mode[2])
@@ -261,7 +269,7 @@ func printOp(index int, tape,input []int) (string, error) {
 			s=strconv.Itoa(loc1)
 
 		}
-		return fmt.Sprintf("Output:%d from %v Written to output\n Halt at next Instruction:%v\n",val1,s,tape[index+2]==99), nil
+		return fmt.Sprintf("%d: Output:%d from %v Written to output\n Halt at next Instruction:%v\n",index, val1,s,tape[index+2]==99), nil
 	case 5:
 		loc1 := tape[index+1]
 		loc2 := tape[index+2]
@@ -279,7 +287,7 @@ func printOp(index int, tape,input []int) (string, error) {
 		}else{
 			s=fmt.Sprintf("Set to %d",index+3)
 		}
-		return fmt.Sprintf("JumpTrue: %v!=0 :%v Inst -> %v\n",val1, val1!=0, s), nil
+		return fmt.Sprintf("%d: JumpTrue: %v!=0 :%v Inst -> %v\n",index, val1, val1!=0, s), nil
 	case 6:
 		loc1 := tape[index+1]
 		loc2 := tape[index+2]
@@ -297,7 +305,7 @@ func printOp(index int, tape,input []int) (string, error) {
 		}else{
 			s=fmt.Sprintf("Set to %d",index+3)
 		}
-		return fmt.Sprintf("JumpZero: %v==0:%v Inst -> %v\n", val1,val1==0, s), nil
+		return fmt.Sprintf("%d: JumpZero: %v==0:%v Inst -> %v\n",index,  val1,val1==0, s), nil
 	case 7:
 		loc1 := tape[index+1]
 		loc2 := tape[index+2]
@@ -310,7 +318,7 @@ func printOp(index int, tape,input []int) (string, error) {
 		if err!=nil {
 			return "",err
 		}
-		return fmt.Sprintf("Less:%d < %d = %v written to %d\n", val1, val2, val1<val2, loc3), nil
+		return fmt.Sprintf("%d: Less:%d < %d = %v written to %d\n", index, val1, val2, val1<val2, loc3), nil
 	case 8:
 		loc1 := tape[index+1]
 		loc2 := tape[index+2]
@@ -323,7 +331,7 @@ func printOp(index int, tape,input []int) (string, error) {
 		if err!=nil {
 			return "",err
 		}
-		return fmt.Sprintf("Equals:%d == %d = %v written to %d\n", val1, val2, val1==val2, loc3), nil
+		return fmt.Sprintf("%d: Equals:%d == %d = %v written to %d\n",index, val1, val2, val1==val2, loc3), nil
 	default:
 		return string(""), fmt.Errorf("Unknown Operation %d", op)
 	}
@@ -337,9 +345,8 @@ func runTape(tape, input,output*[]int) (int, error) {
 
 
 		s,err:=printOp(i,*tape,*input)
-		fmt.Println(s)
 		if err!=nil{
-			return 0,fmt.Errorf("Invalid Operand at %d\n Status:%v\n Tape:%v %w",i,s,*tape,err)
+			return 0,fmt.Errorf("Invalid Operand at %d Status:%v Tape:%v %w",i,s,*tape,err)
 		}
 		result,err := doOp(&i, tape,input,output)
 		if result!=nil{
@@ -366,20 +373,76 @@ func amplify(program, phases[]int)(int,error){
 		if err!=nil {
 			return in_out,fmt.Errorf("Amplify:Failed at stage %v:%w",i,err)
 		}
-		fmt.Println(working)
 	}
 	return in_out,nil
 }
-func phases(n int) [][]int{
-	start:=make([]int,n)
-	output:=make([][]int,0)
-	for i:=0;i<n;i++{
-		start[i]=i
+func runTapeRestartable(index *int, tape, input,output*[]int) (int, error) {
+	for ; ;{
+		s,err:=printOp(*index,*tape,*input)
+		if err!=nil && !errors.Is(err,EmptyInputError{}){
+			return 0,fmt.Errorf("Invalid Operand at %d\n Status:%v Tape:%v\n %w",*index,s,*tape,err)
+		}
+		result,err := doOp(index, tape,input,output)
+		if result!=nil{
+			return *result, HaltError{}
+		}else if err!=nil{
+			if errors.Is(err,EmptyInputError{}){
+				return 0,err
+
+			}else if !errors.Is(err,HaltError{}){
+				return 0, fmt.Errorf("Failed at %d\n Tape:%v %w", *index, tape, err)
+			}
+		}
+
 	}
+}
+func contAmplify(program, phases[]int)(int,error){
+	in_out:=0
+	input:=make([][]int,5)
+	working:=make([][]int,5)
+	index:=[5]int{0,0,0,0,0}
+	halted:=make([]bool,5)
+	for i:=0;i<5;i++{
+		input[i]=make([]int,1)
+		input[i][0]=phases[i]
+		working[i]=make([]int,len(program))
+		copy(working[i],program)
+		halted[i]=false
+	}
+        input[0]=append(input[0],0)
+	var err error
+	for i:=0; halted[4]!=true ;i++{
+		if i==5{
+			i=0
+		}
+		if(halted[i]==true){
+			continue
+		}
+
+		if i==4{
+			_,err=runTapeRestartable(&index[i],&(working[i]),&(input[i]),&(input[0]))
+		}else{
+			_,err=runTapeRestartable(&index[i],&(working[i]),&(input[i]),&(input[i+1]))
+		}
+		if err!=nil && errors.Is(err,HaltError{}) {
+			halted[i]=true
+			continue;
+		}else if err!=nil && errors.Is(err,EmptyInputError{}){
+			continue;
+		}else if err!=nil {
+			return in_out,fmt.Errorf("Amplify:Failed at stage %v:%w",i,err)
+		}
+	}
+	return input[0][0],nil
+}
+func phases(init []int) [][]int{
+	start:=make([]int,len(init))
+	copy(start,init)
+	output:=make([][]int,0)
 	var permutations func(k int, A *[]int)
 	permutations=func(k int, A *[]int){
 		if k ==1 {
-		o:=make([]int,n)
+		o:=make([]int,len(init))
 		copy(o,start)
 		output=append(output,o)
 		}else{
@@ -395,7 +458,7 @@ func phases(n int) [][]int{
 			}
 		}
 	}
-	permutations(n,&start)
+	permutations(len(init),&start)
 	return output
 }
 func main() {
@@ -415,12 +478,11 @@ func main() {
 		}
 	}
 
-	tape=[]int{3,15,3,16,1002,16,10,16,1,16,15,15,4,15,99,0,0}
 	output :=0
 	var phase []int
-	ps:=phases(5)
+	ps:=phases([]int{5,6,7,8,9})
 	for _,v := range ps{
-		t, err := amplify(tape,v)
+		t, err := contAmplify(tape,v)
 		if err != nil {
 			fmt.Printf("Amplify Error %v", err)
 			os.Exit(1)
